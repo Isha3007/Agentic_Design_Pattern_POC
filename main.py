@@ -128,7 +128,11 @@ Działać dzięki."""
     mode = "kt"   # sprint | kt | general
     detect_language=True
 
-    result = asyncio.run(run_workflow(transcript,mode,detect_language))
+    mode = "kt"  # sprint | kt | general
+
+    result = asyncio.run(
+        run_workflow(transcript, session_mode="kt")
+    )
 
     print("\n========== FINAL OUTPUT ==========\n")
     print(result)

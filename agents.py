@@ -9,195 +9,85 @@ client = AzureOpenAI(
 )
 
 
-# ---------- BASE LLM ----------
-def llm_call(system, user):
+# =========================================================
+# BASE LLM CALL
+# =========================================================
 
+def llm_call(system: str, user: str):
     response = client.chat.completions.create(
         model="dep-gpt-4o",
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user}
         ],
-        temperature=0.2
+        temperature=0.1  # deterministic
     )
-
     return response.choices[0].message.content
 
 
 # =========================================================
-# PLANNING AGENT
+# 1️⃣ LANGUAGE AGENT
 # =========================================================
 
-def planning_agent(transcript, mode):
+def language_detection_agent(transcript: str):
 
     system = """
-You are a planning agent.
+You are a Language Intelligence Agent.
 
-Convert the goal into execution steps.
+ROLE BOUNDARY:
+You ONLY detect language characteristics.
+You MUST NOT summarize, normalize, interpret goals, or restructure content.
 
-Mode meanings:
-- sprint → create tasks & actions
-- kt → knowledge transfer documentation
-- general → meeting summary
+TASK:
+1. Detect primary language.
+2. Detect secondary languages if present.
+3. Determine if transcript is mixed-language.
+4. Provide confidence score.
 
-Return JSON:
-{
-  "goal": "",
-  "steps": []
-}
-"""
+STRICT OUTPUT FORMAT (JSON ONLY):
 
-    user = f"""
-Mode: {mode}
-
-Transcript:
-{transcript}
-"""
-
-    return llm_call(system, user)
-
-
-# =========================================================
-# ROUTING AGENT
-# =========================================================
-
-def routing_agent(mode):
-
-    system = """
-You are a routing agent.
-
-Map mode to pipeline.
-
-Return JSON:
-{
-  "pipeline": "",
-  "tools": []
-}
-"""
-
-    user = f"Mode: {mode}"
-
-    return llm_call(system, user)
-
-
-# =========================================================
-# WORKER AGENTS
-# =========================================================
-
-async def action_agent(transcript):
-
-    system = "Extract actionable tasks with owners and deadlines."
-
-    return llm_call(system, transcript)
-
-
-async def decision_agent(transcript):
-
-    system = "Extract decisions made in the meeting."
-
-    return llm_call(system, transcript)
-
-
-async def risk_agent(transcript):
-
-    system = "Extract risks and blockers."
-
-    return llm_call(system, transcript)
-
-
-async def documentation_agent(transcript):
-
-    system = "Create structured knowledge transfer documentation."
-
-    return llm_call(system, transcript)
-
-
-async def summary_agent(transcript):
-
-    system = "Create concise meeting summary."
-
-    return llm_call(system, transcript)
-
-
-# =========================================================
-# REFLECTION AGENT
-# =========================================================
-
-def reflection_agent(draft):
-
-    system = """
-You are a reflection agent.
-
-Improve reliability and clarity.
-
-Steps:
-1. Identify problems
-2. Improve structure
-3. Return final output
-"""
-
-    return llm_call(system, draft)
-
-
-# =========================================================
-# TOOL PLANNER
-# =========================================================
-
-def tool_planner_agent(context):
-
-    system = """
-Decide tools needed.
-
-Available:
-confluence, slack, teams
-
-Return JSON list.
-"""
-
-    return llm_call(system, context)
-
-# =========================================================
-# LANGUAGE DETECTION AGENT
-# =========================================================
-
-def language_detection_agent(transcript):
-
-    system = """
-You are a language detection agent.
-
-Detect the language(s) used in the transcript.
-
-Return JSON:
 {
   "primary_language": "",
-  "other_languages": [],
-  "is_mixed": true/false
+  "secondary_languages": [],
+  "is_mixed": true/false,
+  "confidence": 0.0-1.0
 }
+
+CONSTRAINTS:
+- Do not hallucinate languages.
+- If unsure, lower confidence.
+- No commentary outside JSON.
 """
 
     return llm_call(system, transcript)
 
-# =========================================================
-# NORMALIZATION AGENT
-# =========================================================
 
-def normalization_agent(transcript, language_info):
+def normalization_agent(transcript: str, language_info: str):
 
     system = """
-You are a normalization agent.
+You are a Transcript Normalization Agent.
 
-Your task:
-Convert the transcript into clear professional English.
+ROLE:
+Convert transcript into professional English while preserving semantic fidelity.
 
-Use language detection info to guide translation.
-
-Rules:
-- Preserve names
+YOU MUST:
 - Preserve technical terms
+- Preserve names
 - Preserve deadlines
-- Do not remove meaning
+- Preserve meaning exactly
 
-Return normalized transcript only.
+YOU MUST NOT:
+- Summarize
+- Remove content
+- Add new information
+- Interpret intent beyond transcript
+
+If transcript already English:
+Return cleaned version only.
+
+Return ONLY normalized transcript.
+No JSON.
+No commentary.
 """
 
     user = f"""
@@ -210,59 +100,238 @@ Transcript:
 
     return llm_call(system, user)
 
+
 # =========================================================
-# CONFLUENCE FORMATTER AGENT
+# 2️⃣ PLANNER AGENT
 # =========================================================
-def confluence_formatter_agent(final_output, transcript, mode, language_info):
 
-    system = f"""
-You are a Confluence documentation specialist.
+def planning_agent(transcript: str, session_mode: str):
 
-Format content based on meeting mode.
+    system = """
+You are a Strategic Planning Agent in a multi-agent LLM orchestration system.
 
-Mode = {mode}
+ROLE BOUNDARY:
+You DO NOT execute.
+You DO NOT summarize.
+You DO NOT call tools.
+You DO NOT produce documentation.
 
-Rules:
+You ONLY produce a structured execution plan.
 
-If mode = sprint:
-    Include:
-    - Metadata
-    - Actions
-    - Decisions
-    - Risks
-    - Insights
+TASK:
+1. Detect session type (KT or General or Sprint).
+2. Identify objective.
+3. Decompose into ordered phases.
+4. Define dependencies.
+5. Identify parallelizable phases.
 
-If mode = kt:
-    Create detailed knowledge document with:
+STRICT OUTPUT FORMAT (JSON ARRAY):
 
-    - Overview
-    - Topics Covered
-    - Detailed Explanations
-    - Technical Notes
-    - Examples
-    - Key Insights
-    - Best Practices
-    - Additional Notes
+[
+  {
+    "phase_id": 1,
+    "phase_name": "",
+    "objective": "",
+    "expected_output": "",
+    "depends_on": [],
+    "can_run_parallel": true/false
+  }
+]
 
-If mode = general:
-    Include:
-    - Summary
-    - Key Points
-    - Decisions
-    - Follow Ups
-
-Return clean HTML only.
+CONSTRAINTS:
+- No cyclic dependencies.
+- Sequential phase_id.
+- No vague phase names.
+- Do not hallucinate goals.
+- No commentary outside JSON.
 """
 
     user = f"""
-Language Info:
-{language_info}
+Session Mode Hint: {session_mode}
 
-Content:
-{final_output}
-
-Transcript:
+Normalized Transcript:
 {transcript}
 """
 
     return llm_call(system, user)
+
+
+# =========================================================
+# 3️⃣ ROUTER AGENT
+# =========================================================
+
+def router_agent(plan_json: str):
+
+    system = """
+You are a Routing Agent.
+
+ROLE:
+Map planner phases to execution agents and validate integrity.
+
+AVAILABLE AGENTS:
+- summary_agent
+- action_agent
+- decision_agent
+- risk_agent
+- documentation_agent
+
+TASK:
+1. Validate phase structure.
+2. Reject ambiguous phase names.
+3. Ensure dependencies reference valid phase_id.
+4. Return routing map.
+
+STRICT OUTPUT FORMAT:
+
+{
+  "status": "valid" | "invalid",
+  "routing_map": [
+    {
+      "phase_id": 1,
+      "agent": ""
+    }
+  ],
+  "error": ""
+}
+
+If invalid:
+Set status = "invalid" and explain in error.
+
+No commentary outside JSON.
+"""
+
+    return llm_call(system, plan_json)
+
+
+# =========================================================
+# 4️⃣ EXECUTION AGENTS
+# =========================================================
+
+async def summary_agent(transcript: str):
+    system = """
+You are a Summary Agent.
+
+Produce concise structured meeting summary.
+
+DO NOT:
+- Plan
+- Reflect
+- Call tools
+
+Return structured markdown summary.
+"""
+    return llm_call(system, transcript)
+
+
+async def action_agent(transcript: str):
+    return llm_call(
+        "Extract structured action items with owners and deadlines.",
+        transcript
+    )
+
+
+async def decision_agent(transcript: str):
+    return llm_call(
+        "Extract structured decisions made during the meeting.",
+        transcript
+    )
+
+
+async def risk_agent(transcript: str):
+    return llm_call(
+        "Extract structured risks and blockers mentioned.",
+        transcript
+    )
+
+
+async def documentation_agent(transcript: str):
+    system = """
+You are a Knowledge Documentation Agent.
+
+Generate structured KT document:
+
+# Overview
+# Topics Covered
+# Detailed Explanation
+# Technical Notes
+# Best Practices
+# Risks
+# Additional Notes
+
+DO NOT:
+- Score quality
+- Reflect
+- Call tools
+"""
+    return llm_call(system, transcript)
+
+
+# =========================================================
+# 5️⃣ REFLECTION AGENT
+# =========================================================
+
+def reflection_agent(context_json: str):
+
+    system = """
+You are a Reflection & Evaluation Agent.
+
+TASK:
+Compare output vs meeting goal.
+
+Score:
+0-100 satisfaction.
+
+Penalize:
+- Missing depth
+- Vague explanations
+- Missing technical clarity
+
+STRICT OUTPUT FORMAT:
+
+{
+  "goal_detected": "",
+  "goal_satisfaction_score": 0-100,
+  "coverage_analysis": "",
+  "missing_topics": [],
+  "improvement_suggestions": [],
+  "confidence": 0.0-1.0
+}
+
+No commentary outside JSON.
+"""
+
+    return llm_call(system, context_json)
+
+
+# =========================================================
+# 6️⃣ TOOL AGENT
+# =========================================================
+
+def tool_planner_agent(context_json: str):
+
+    system = """
+You are a Tool Decision Agent.
+
+AVAILABLE TOOLS:
+- create_confluence
+- send_slack_message
+- none
+
+You MUST:
+- Only choose from allowed list.
+- Justify decision.
+- Provide confidence score.
+
+STRICT OUTPUT FORMAT:
+
+{
+  "tool": "create_confluence" | "send_slack_message" | "none",
+  "reason": "",
+  "confidence": 0.0-1.0,
+  "payload": {}
+}
+
+No commentary outside JSON.
+"""
+
+    return llm_call(system, context_json)
