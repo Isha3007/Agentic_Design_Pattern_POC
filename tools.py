@@ -34,14 +34,13 @@ def create_confluence_page(title, html_content):
         page_data = response.json()
         page_id = page_data.get("id")
         page_link = f"{CONFLUENCE_BASE_URL}/wiki/pages/{page_id}"
-        print("✅ Confluence page created:", page_link)
+        print("Confluence page created:", page_link)
         return page_link
     else:
-        print("❌ Confluence error:", response.text)
+        print("Confluence error:", response.text)
         return None
 
 
 def send_slack_message(message: str):
-    # Replace with real webhook if needed
-    print("📩 Slack message sent:")
+    print("Slack message sent:")
     print(message)
