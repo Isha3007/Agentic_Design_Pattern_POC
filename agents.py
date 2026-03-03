@@ -26,7 +26,7 @@ def llm_call(system: str, user: str):
 
 
 # =========================================================
-# 1️⃣ LANGUAGE AGENT
+# LANGUAGE AGENT
 # =========================================================
 
 def language_detection_agent(transcript: str):
@@ -102,7 +102,7 @@ Transcript:
 
 
 # =========================================================
-# 2️⃣ PLANNER AGENT
+# PLANNER AGENT
 # =========================================================
 
 def planning_agent(transcript: str, session_mode: str):
@@ -157,7 +157,7 @@ Normalized Transcript:
 
 
 # =========================================================
-# 3️⃣ ROUTER AGENT
+# ROUTER AGENT
 # =========================================================
 
 def router_agent(plan_json: str):
@@ -204,7 +204,7 @@ No commentary outside JSON.
 
 
 # =========================================================
-# 4️⃣ EXECUTION AGENTS
+# EXECUTION AGENTS
 # =========================================================
 
 async def summary_agent(transcript: str):
@@ -267,7 +267,7 @@ DO NOT:
 
 
 # =========================================================
-# 5️⃣ REFLECTION AGENT
+# REFLECTION AGENT
 # =========================================================
 
 def reflection_agent(context_json: str):
@@ -304,7 +304,7 @@ No commentary outside JSON.
 
 
 # =========================================================
-# 6️⃣ TOOL AGENT
+# TOOL AGENT
 # =========================================================
 
 def tool_planner_agent(context_json: str):

@@ -45,18 +45,18 @@ async def run_workflow(transcript: str, session_mode: str):
     state = WorkflowState(raw_transcript=transcript,
                           session_mode=session_mode)
 
-    # 1️⃣ LANGUAGE DETECTION
+    # LANGUAGE DETECTION
     state.detected_language = json.loads(
         language_detection_agent(state.raw_transcript)
     )
 
-    # 2️⃣ NORMALIZATION
+    # NORMALIZATION
     state.normalized_transcript = normalization_agent(
         state.raw_transcript,
         json.dumps(state.detected_language)
     )
 
-    # 3️⃣ PLANNING
+    # PLANNING
     state.plan = json.loads(
         planning_agent(
             state.normalized_transcript,
@@ -64,7 +64,7 @@ async def run_workflow(transcript: str, session_mode: str):
         )
     )
 
-    # 4️⃣ ROUTING
+    # ROUTING
     routing_response = json.loads(
         router_agent(json.dumps(state.plan))
     )
@@ -74,7 +74,7 @@ async def run_workflow(transcript: str, session_mode: str):
 
     state.routing_map = routing_response["routing_map"]
 
-    # 5️⃣ EXECUTION LOOP
+    # EXECUTION LOOP
     for route in state.routing_map:
 
         phase_id = route["phase_id"]
@@ -104,7 +104,7 @@ async def run_workflow(transcript: str, session_mode: str):
 
     combined_output = "\n\n".join(state.phase_outputs.values())
 
-    # 6️⃣ REFLECTION
+    # REFLECTION
     state.reflection_output = json.loads(
         reflection_agent(json.dumps({
             "goal": state.plan,
@@ -112,7 +112,7 @@ async def run_workflow(transcript: str, session_mode: str):
         }))
     )
 
-    # # 7️⃣ TOOL DECISION
+    # # TOOL DECISION
     # state.tool_decision = json.loads(
     #     tool_planner_agent(json.dumps({
     #         "session_mode": state.session_mode,
@@ -120,7 +120,7 @@ async def run_workflow(transcript: str, session_mode: str):
     #     }))
     # )
 
-    # # 8️⃣ TOOL EXECUTION
+    # # TOOL EXECUTION
     # if state.tool_decision["tool"] == "create_confluence":
     #     create_confluence_page(
     #         title=f"{state.session_mode.upper()} Session Documentation",
@@ -130,21 +130,21 @@ async def run_workflow(transcript: str, session_mode: str):
     # if state.tool_decision["tool"] == "send_slack_message":
     #     send_slack_message(state.tool_decision["payload"])
 
-        # =====================================================
-    # 7️⃣ DETERMINISTIC TOOL EXECUTION BASED ON MODE
+    # =====================================================
+    # DETERMINISTIC TOOL EXECUTION BASED ON MODE
     # =====================================================
 
     slack_message = ""
 
     if state.session_mode in ["kt", "sprint"]:
 
-        # 1️⃣ Create Confluence Page
+        # Create Confluence Page
         page_link = create_confluence_page(
             title=f"{state.session_mode.upper()} Session Documentation",
             html_content=combined_output
         )
 
-        # 2️⃣ Send Slack Message with Link
+        # Send Slack Message with Link
         if page_link:
             slack_message = f"""
 📢 {state.session_mode.upper()} session documentation created.
